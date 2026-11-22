@@ -12,13 +12,13 @@
   // Transactional emails only: subject must look like a receipt/renewal/trial notice; skip Promotions,
   // Social, Forums and your own sent mail, so newsletters don't crowd out real receipts.
   var QUERY = 'newer_than:1y -in:sent -from:me -category:promotions -category:social -category:forums ' +
-    'subject:(receipt OR invoice OR subscription OR renew OR renews OR renewal OR renewed OR "free trial" OR "trial ends" OR ' +
+    'subject:(receipt OR invoice OR subscription OR renew OR renews OR renewal OR "free trial" OR "trial ends" OR ' +
     '"trial ending" OR payment OR membership OR billing OR charged OR "order confirmation")';
-  var TX_SUBJECT = /receipt|invoice|subscri|renew|trial|payment|membership|billing|charged|order confirmation|your order|purchase/i;
+  var TX_SUBJECT = /receipt|invoice|subscri|\brenew(s|al)?\b|has renewed|was renewed|trial|payment|membership|billing|charged|order confirmation|your order|purchase/i;
   var MAX_MESSAGES = 150;
   var RECURRING = /subscri|renew|per month|\/\s?mo(nth)?\b|monthly|per year|\/\s?yr\b|annual|yearly|membership|free trial|trial (ends|period)|plan\b|premium|per period|billing period/i;
-  var SKIP_SUBJECT = /refund|statement|key fact|itinerary|e-?ticket|boarding|one[- ]time password|\botp\b|password|verify your|loan|webinar|newsletter|black friday|sale\b|% off|split in|instal+ment|tax invoice for|credit note|cancel|credit card payment|payment received|payment (was )?success|successful payment|payment due|payment confirmation|upcoming payment|payment coming up|transfer receipt|ticket|visa|emirates id|automatic reply|maintenance|threshold|payment method updated|payment info|tabby|tamara|membership (information|application|assessment|inquiry)|google ads|ads:|thanks for shopping|order invoice/i;
-  var SKIP_SENDER = /news|newsletter|marketing|promo|offers|digest|updates@|community/i;
+  var SKIP_SUBJECT = /refund|statement|key fact|itinerary|e-?ticket|boarding|one[- ]time password|\botp\b|password|verify your|loan|webinar|newsletter|black friday|sale\b|% off|split in|instal+ment|tax invoice for|credit note|cancel|credit card payment|payment received|payment (was )?success|successful payment|payment due|payment confirmation|upcoming payment|payment coming up|transfer receipt|ticket|visa|emirates id|automatic reply|maintenance|threshold|payment method updated|payment info|tabby|tamara|membership (information|application|assessment|inquiry)|google ads|ads:|thanks for shopping|order invoice|easy payment plan|balance conversion|suspended|\bfree\b(?! trial)/i;
+  var SKIP_SENDER = /news|newsletter|marketing|promo|offers|digest|updates@|community|research|desk|insights|webinar/i;
 
   function $(id) { return document.getElementById(id); }
   S._gmail = { toCandidate: toCandidate, bodyText: bodyText }; // test hook (function declarations are hoisted)
@@ -123,6 +123,9 @@
     var text = 'From: ' + from + '\nTo: ' + account + '\nSubject: ' + subject + '\n' + body;
     var p = S.parseReceipt(text);
     if (!p.name || !(p.price > 0)) return null;
+    var lowName = p.name.toLowerCase();
+    var longer = S.knownNames().filter(function (n) { return n.toLowerCase().indexOf(lowName + ' ') === 0; });
+    if (longer.length === 1) p.name = longer[0];
     var sent = new Date(+msg.internalDate); sent.setHours(0, 0, 0, 0);
     var iso = sent.getFullYear() + '-' + ('0' + (sent.getMonth() + 1)).slice(-2) + '-' + ('0' + sent.getDate()).slice(-2);
     // Use the date in the email when it's a later renewal/trial-end date; otherwise the email's date (the tracker rolls it forward).
