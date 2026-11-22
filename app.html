@@ -131,14 +131,13 @@
       </div>
 
       <div class="panel" data-panel="paste" hidden>
-        <label for="raw">Paste a receipt, renewal or "trial ending" email</label>
-        <textarea id="raw" placeholder="From: Netflix <info@account.netflix.com>&#10;To: you@gmail.com&#10;Your membership will renew on 28 November 2026.&#10;Amount: AED 56.00 · Visa ending in 4821"></textarea>
+        <label for="raw">Paste a receipt email, or bank SMS alerts (several at once is fine)</label>
+        <textarea id="raw" placeholder="Paste a receipt or &quot;trial ending&quot; email here.&#10;&#10;Or paste your bank's card SMS alerts, one per line. Charges that repeat are flagged as subscriptions."></textarea>
         <div class="parse-note" id="parseNote"></div>
         <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" id="parseBtn">Read it →</button>
-          <button class="btn btn-ghost btn-sm" id="sampleBtn">Try a sample</button>
         </div>
-        <p class="note">Reading happens in your browser. Nothing you paste is uploaded.</p>
+        <p class="note">Reading happens in your browser. Nothing you paste is uploaded. Tip: on your phone, long-press your bank's SMS thread to copy messages.</p>
       </div>
 
       <div class="panel" data-panel="add" hidden>
@@ -175,7 +174,6 @@
           <select id="groupBy"><option value="email">Email</option><option value="card">Card</option><option value="none">Next charge</option></select>
         </div>
         <div class="toolbar">
-          <button class="btn btn-ghost btn-sm" id="demoBtn">Load example data</button>
           <button class="btn btn-danger btn-sm" id="clearBtn">Delete all</button>
         </div>
       </div>

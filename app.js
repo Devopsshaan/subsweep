@@ -46,16 +46,6 @@
     { t: 'Price increases', q: '("price increase" OR "price change" OR "new price" OR "updating our prices") newer_than:1y' }
   ];
 
-  var SAMPLE = [
-    'From: Design Studio <billing@designstudio.example>',
-    'To: old.hotmail@hotmail.com',
-    'Subject: Your free trial ends in 3 days',
-    '',
-    'Hi there, your 14-day free trial of Design Studio Pro ends on ' + fmtLong(addDays(today(), 3)) + '.',
-    'After that you will be charged USD 14.99 per month to your Visa ending in 0193.',
-    'Cancel anytime from your account settings.'
-  ].join('\n');
-
   // ---------- state ----------
   var state = load();
 
@@ -120,7 +110,9 @@
     if (known) out.name = known.n;
     else {
       var from = text.match(/^\s*from:\s*"?([^"<\n]+?)"?\s*<([^>]+)>/im);
-      if (from && from[1].trim()) out.name = from[1].trim();
+      var merchant = !from && isSms(text) && smsMerchant(text);
+      if (merchant) out.name = merchant;
+      else if (from && from[1].trim()) out.name = from[1].trim();
       else {
         var dom = text.match(/@([a-z0-9-]+)\.[a-z.]+/i);
         if (dom) out.name = dom[1].charAt(0).toUpperCase() + dom[1].slice(1);
@@ -183,6 +175,52 @@
     return out;
   }
 
+  // ---------- bank SMS ----------
+  // e.g. "Purchase of AED 22.00 with Credit Card ending 7385 at X CORP. PAID FEATURES, San Francisco. Avl Cr. Limit is AED 9,000.00"
+  //      "Your Cr.Card XXX7385 was used for AED22.00 on 13/10/2026 at NETFLIX.COM,Amsterdam."
+  // How common subscriptions appear as card merchants.
+  var MERCHANT_ALIASES = [
+    [/^x corp|^twitter/, 'X Premium'], [/openai|chatgpt/, 'ChatGPT Plus'], [/anthropic|claude\.ai/, 'Claude Pro'],
+    [/apple\.com\/bill|itunes|apple services/, 'Apple (App Store)'], [/google \s?\*?\s?(play|one|youtube)|google play/, 'Google Play'],
+    [/youtube/, 'YouTube Premium'], [/netflix/, 'Netflix'], [/spotify/, 'Spotify'], [/amzn prime|amazon prime/, 'Amazon Prime'],
+    [/github/, 'GitHub Copilot'], [/microsoft|msft/, 'Microsoft 365'], [/adobe/, 'Adobe Creative Cloud'], [/canva/, 'Canva Pro'],
+    [/shahid/, 'Shahid VIP'], [/osn/, 'OSN+'], [/anghami/, 'Anghami Plus'], [/starz/, 'STARZPLAY'], [/careem plus/, 'Careem Plus']
+  ];
+  var SUBSCRIPTION_HINT = /subscr|premium|member|plan\b|monthly|renew/i;
+  var SMS_AMOUNT = /(AED|USD|EUR|GBP|SAR|INR|QAR|KWD|BHD|OMR)\s?\d/i;
+  function isSms(t) { return SMS_AMOUNT.test(t) && /\b(card|cr\.?\s?card|db\.?\s?card|a\/c|acct|account)\b/i.test(t) && !/^\s*from:/im.test(t); }
+  function smsMerchant(t) {
+    var m = t.match(/\b(?:at|@|merchant:?)\s+([A-Za-z0-9*][A-Za-z0-9 .&*'\/_-]{1,40}?)(?=\s*(?:,|\.\s|\.$|\bon\b|\bavl|\bavail|\bfor\b|\bref\b|\btxn\b|$))/i);
+    if (!m) return '';
+    var raw = m[1].replace(/\*+/g, ' ').replace(/\s+/g, ' ').trim();
+    var low = raw.toLowerCase();
+    for (var i = 0; i < MERCHANT_ALIASES.length; i++) if (MERCHANT_ALIASES[i][0].test(low)) return MERCHANT_ALIASES[i][1];
+    var first = low.split(/[\s.]/)[0];
+    var k = KNOWN.filter(function (x) { return x.n.toLowerCase().split(' ')[0] === first && first.length > 2; })[0];
+    if (k) return k.n;
+    return raw.toLowerCase().replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }).replace(/\.(com|net|io|ae)\b/i, '');
+  }
+  // Several SMS pasted at once: one charge per line. A merchant charged 2+ times is treated as a subscription.
+  function parseSmsBatch(text) {
+    var lines = text.split(/\n+/).map(function (l) { return l.trim(); }).filter(isSms);
+    if (lines.length < 2) return null;
+    var by = {};
+    lines.forEach(function (l) {
+      var p = parseReceipt(l);
+      if (!p.name || !(p.price > 0)) return;
+      var key = p.name.toLowerCase();
+      var cur = by[key];
+      var known = KNOWN.some(function (x) { return x.n.toLowerCase() === key; }) || MERCHANT_ALIASES.some(function (a) { return a[1].toLowerCase() === key; });
+      if (!cur) by[key] = { p: p, n: 1, keep: known || SUBSCRIPTION_HINT.test(l) };
+      else { cur.n++; if ((p.next || '') > (cur.p.next || '')) cur.p = p; }
+    });
+    // Keep repeat charges and known subscription merchants; drop one-off shopping.
+    return Object.keys(by).filter(function (k) { return by[k].n > 1 || by[k].keep; }).map(function (k) {
+      var x = by[k];
+      return { name: x.p.name, price: x.p.price, cur: x.p.cur, cycle: x.p.cycle || 'monthly', next: x.p.next || '', card: x.p.card || '', via: 'card', trial: false, email: '', times: x.n };
+    });
+  }
+
   function findDates(text) {
     var res = [];
     var KEY = /(renew|next (billing|payment|charge)|trial (ends|will end)|ends on|will be charged|billed on|due)/i;
@@ -194,8 +232,8 @@
     var m, re;
     re = /\b(\d{4})-(\d{2})-(\d{2})\b/g;                                   // 2026-12-05
     while ((m = re.exec(text))) push(new Date(+m[1], +m[2] - 1, +m[3]), m.index);
-    re = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?,?\s+(\d{4})\b/gi; // 5 December 2026
-    while ((m = re.exec(text))) push(new Date(+m[3], MONTHS[m[2].toLowerCase()], +m[1]), m.index);
+    re = /\b(\d{1,2})(?:st|nd|rd|th)?[\s-]+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?,?[\s-]+(\d{4}|\d{2})\b/gi; // 5 December 2026, 13-OCT-26
+    while ((m = re.exec(text))) push(new Date(m[3].length === 2 ? 2000 + +m[3] : +m[3], MONTHS[m[2].toLowerCase()], +m[1]), m.index);
     re = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gi; // December 5, 2026
     while ((m = re.exec(text))) push(new Date(+m[3], MONTHS[m[1].toLowerCase()], +m[2]), m.index);
     re = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;                              // 05/12/2026 → day/month (UAE format)
@@ -292,7 +330,16 @@
 
   $('parseBtn').addEventListener('click', function () {
     var txt = els.raw.value.trim();
-    if (!txt) { toast('Paste an email first'); return; }
+    if (!txt) { toast('Paste an email or SMS first'); return; }
+    var batch = parseSmsBatch(txt);
+    if (batch && !batch.length) { toast('No repeating or subscription charges found in those messages.'); return; }
+    if (batch && batch.length) {
+      window.SubSweep.addItems(batch);
+      els.raw.value = '';
+      var repeat = batch.filter(function (b) { return b.times > 1; }).length;
+      toast('Added ' + batch.length + ' from your SMS' + (repeat ? ' (' + repeat + ' charged more than once)' : '') + '. Remove any one-off purchases.');
+      return;
+    }
     var p = parseReceipt(txt);
     fillForm(p);
     els.parseNote.style.display = 'block';
@@ -301,7 +348,6 @@
       : "Couldn't read much from that. Fill in the details by hand.";
     showTab('add');
   });
-  $('sampleBtn').addEventListener('click', function () { els.raw.value = SAMPLE; });
 
   // ---------- list ----------
   function render() {
@@ -317,7 +363,7 @@
     $('kIds').textContent = Object.keys(emails).length + ' / ' + Object.keys(cards).length;
 
     if (!items.length) {
-      els.list.innerHTML = '<div class="card empty"><h3>No subscriptions yet</h3><p class="muted">Start with step 1: open the Gmail searches in each of your accounts. Or load example data to look around.</p></div>';
+      els.list.innerHTML = '<div class="card empty"><h3>No subscriptions yet</h3><p class="muted">Start with step 1: connect each Gmail account, or paste a receipt or bank SMS in step 2.</p></div>';
       return;
     }
 
@@ -413,21 +459,6 @@
   $('clearBtn').addEventListener('click', function () {
     if (!state.items.length) return;
     if (armed($('clearBtn'), 'Click again to delete all ' + state.items.length)) { state.items = []; save(); render(); toast('All subscriptions deleted'); }
-  });
-
-  $('demoBtn').addEventListener('click', function () {
-    if (state.items.some(function (x) { return /^demo/.test(x.id); })) { toast('Example data is already loaded'); return; }
-    var t = today();
-    var demo = [
-      { name: 'Netflix', price: 56, cur: 'AED', cycle: 'monthly', next: toISO(addDays(t, 2)), email: 'me.personal@gmail.com', card: '4821', via: 'card' },
-      { name: 'ChatGPT Plus', price: 20, cur: 'USD', cycle: 'monthly', next: toISO(addDays(t, 9)), email: 'me.personal@gmail.com', card: '4821', via: 'card' },
-      { name: 'Shahid VIP', price: 29.99, cur: 'AED', cycle: 'monthly', next: toISO(addDays(t, 16)), email: 'me.personal@gmail.com', card: '', via: 'apple' },
-      { name: 'Design Studio Pro', price: 14.99, cur: 'USD', cycle: 'monthly', next: toISO(addDays(t, 3)), email: 'old.hotmail@hotmail.com', card: '0193', via: 'card', trial: true },
-      { name: 'Dropbox', price: 119.88, cur: 'USD', cycle: 'yearly', next: toISO(addDays(t, 52)), email: 'old.hotmail@hotmail.com', card: '0193', via: 'card' },
-      { name: 'Gym membership', price: 299, cur: 'AED', cycle: 'monthly', next: toISO(addDays(t, 21)), email: 'me@work.example', card: '7710', via: 'card' }
-    ];
-    demo.forEach(function (d, i) { d.id = 'demo' + Date.now() + i; d.trial = !!d.trial; d.cancel = ''; state.items.push(d); });
-    save(); render(); toast('Example data loaded');
   });
 
   $('csv').addEventListener('click', function () {
