@@ -28,7 +28,10 @@
     { n: 'Notion', c: '#191919' }, { n: 'Adobe Creative Cloud', c: '#fa0f00', cancel: 'https://account.adobe.com/plans' },
     { n: 'Microsoft 365', c: '#d83b01', cancel: 'https://account.microsoft.com/services' },
     { n: 'Dropbox', c: '#0061ff' }, { n: 'LinkedIn Premium', c: '#0a66c2' }, { n: 'Duolingo', c: '#58cc02' },
-    { n: 'Headspace', c: '#f47d31' }
+    { n: 'Headspace', c: '#f47d31' },
+    { n: 'X Premium', c: '#111111' }, { n: 'TradingView', c: '#131722' }, { n: 'Railway', c: '#853bce' },
+    { n: 'Google AI Pro', c: '#4285f4' }, { n: 'YuppTV', c: '#f97316' }, { n: 'Truecaller', c: '#0087ff' },
+    { n: 'vidIQ', c: '#cc0000' }
   ];
   var STORE_CANCEL = {
     apple: 'https://apps.apple.com/account/subscriptions',
@@ -150,10 +153,12 @@
     }
 
     // Billing cycle
-    if (/annual|yearly|per year|\/\s?yr|\/\s?year|12[- ]month/i.test(text)) out.cycle = 'yearly';
+    // Explicit price units ("/month", "per year") win over looser wording like "for 3 months".
+    if (/\/\s?(yr|year)\b|per year|annual|yearly/i.test(text)) out.cycle = 'yearly';
+    else if (/\/\s?mo(nth)?\b|per month|monthly|a month|each month|every month/i.test(text)) out.cycle = 'monthly';
+    else if (/\/\s?wk\b|per week|weekly/i.test(text)) out.cycle = 'weekly';
     else if (/quarter|every 3 months|3[- ]month/i.test(text)) out.cycle = 'quarterly';
-    else if (/weekly|per week|\/\s?wk/i.test(text)) out.cycle = 'weekly';
-    else if (/monthly|per month|\/\s?mo(nth)?\b|a month|each month|every month/i.test(text)) out.cycle = 'monthly';
+    else if (/12[- ]month/i.test(text)) out.cycle = 'yearly';
     if (out.cycle) out.fields.push('billing');
 
     out.trial = /free trial|trial (ends|period|is ending|will end)|your trial/i.test(text);
@@ -452,7 +457,26 @@
   }
 
   // expose parser for testing
-  window.SubSweep = { parseReceipt: parseReceipt };
+  // Used by gmail.js (Connect Gmail) to add found subscriptions.
+  window.SubSweep = {
+    parseReceipt: parseReceipt,
+    knownNames: function () { return KNOWN.map(function (k) { return k.n; }); },
+    hasItem: function (name, email) {
+      var n = String(name).toLowerCase(), e = String(email || '').toLowerCase();
+      return state.items.some(function (x) { return x.name.toLowerCase() === n && (x.email || '') === e; });
+    },
+    addItems: function (list) {
+      list.forEach(function (d, i) {
+        state.items.push({
+          id: 'g' + Date.now().toString(36) + i, name: d.name, price: +d.price || 0, cur: d.cur || state.base,
+          cycle: d.cycle || 'monthly', next: d.next || '', email: (d.email || '').toLowerCase(), card: d.card || '',
+          via: d.via || 'card', trial: !!d.trial, cancel: ''
+        });
+      });
+      save(); render();
+    },
+    toast: toast
+  };
 
   renderSearches(); fillForm({}); render();
 })();
