@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SubSweep Tracker</title>
+<meta name="description" content="Track every subscription and free trial, see which email and card each one is on, and get reminded before the next charge. Your data stays in your browser.">
+<link rel="canonical" href="https://subsweep.sharpmoneyboard.com/app.html">
+<meta name="theme-color" content="#0f9d74">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .app-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 28px 0 18px; }
+  .app-head h1 { margin: 0; font-size: 28px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .toolbar select { width: auto; padding: 7px 10px; font-size: 13px; }
+
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi .k { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .kpi .v { font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin-top: 2px; }
+  .kpi .v.warn { color: var(--warn); }
+
+  .layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+  .tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; margin-bottom: 14px; }
+  .tab { flex: 1; padding: 8px; border: 0; background: transparent; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .panel[hidden] { display: none; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); font-weight: 500; margin: 0; }
+  .check input { width: auto; }
+  .parse-note { font-size: 13px; padding: 10px 12px; border-radius: 9px; background: var(--accent-soft); color: var(--text); margin: 10px 0; display: none; }
+
+  .search-list { display: grid; gap: 10px; }
+  .search-item { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .search-item h4 { margin: 0 0 4px; font-size: 14px; }
+  .search-item code { display: block; font-size: 12px; background: var(--surface-2); padding: 8px; border-radius: 7px; word-break: break-word; margin: 6px 0 8px; }
+  .acct-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  .group { margin-bottom: 18px; }
+  .group-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 8px; }
+  .group-head h3 { margin: 0; font-size: 14px; text-transform: none; color: var(--muted); font-weight: 700; word-break: break-all; }
+  .group-head .sum { font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .item { display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-bottom: 8px; }
+  .item.due { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+  .ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; color: #fff; font-size: 14px; }
+  .item .name { font-weight: 700; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .item .meta { font-size: 13px; color: var(--muted); }
+  .item .right { text-align: right; }
+  .item .price { font-weight: 800; }
+  .item .acts { display: flex; gap: 4px; justify-content: flex-end; margin-top: 4px; flex-wrap: wrap; }
+  .link-btn { background: none; border: 0; color: var(--accent); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 2px 4px; text-decoration: none; }
+  .link-btn.del { color: var(--danger); }
+
+  .empty { text-align: center; padding: 48px 20px; }
+  .empty h3 { margin: 0 0 6px; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 420px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .item { grid-template-columns: 38px 1fr; }
+    .item .right { grid-column: 1 / -1; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+  }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="./"><span class="logo-mark">✓</span>SubSweep</a>
+    <nav class="nav">
+      <span class="small muted hide-sm">🔒 Saved only in this browser</span>
+      <span style="display:flex; align-items:center; gap:6px"><label for="country" class="small" style="margin:0">Country</label><select id="country" style="width:auto; padding:6px 8px; font-size:13px; max-width:160px"></select></span>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="app-head">
+    <div>
+      <h1>My subscriptions</h1>
+      <div class="muted small">Find them, see which email and card they're on, and cancel in time.</div>
+    </div>
+    <div class="toolbar">
+      <label for="base" class="small" style="margin:0">Show totals in</label>
+      <select id="base" aria-label="Base currency"></select>
+      <button class="btn btn-ghost btn-sm" id="csv">Copy list as CSV</button>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="card kpi"><div class="k">Monthly total</div><div class="v" id="kMonth">—</div></div>
+    <div class="card kpi"><div class="k">Per year</div><div class="v" id="kYear">—</div></div>
+    <div class="card kpi"><div class="k">Renewing in 7 days</div><div class="v warn" id="kSoon">0</div></div>
+    <div class="card kpi"><div class="k">Emails / cards used</div><div class="v" id="kIds">0 / 0</div></div>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT: add -->
+    <div class="card">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-tab="find">1 · Find</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="paste">2 · Paste</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="add">3 · Save</button>
+      </div>
+
+      <div class="panel" data-panel="find">
+        <p class="small muted" style="margin-top:0">Open these searches in <strong>each</strong> Gmail account you have. Account 1, 2, 3 are the accounts signed in to your browser, in order.</p>
+        <div class="search-list" id="searches"></div>
+        <p class="note">Outlook/Hotmail: copy the words into Outlook search, without <code>newer_than:</code>.</p>
+      </div>
+
+      <div class="panel" data-panel="paste" hidden>
+        <label for="raw">Paste a receipt, renewal or "trial ending" email</label>
+        <textarea id="raw" placeholder="From: Netflix <info@account.netflix.com>&#10;To: you@gmail.com&#10;Your membership will renew on 28 November 2026.&#10;Amount: AED 56.00 · Visa ending in 4821"></textarea>
+        <div class="parse-note" id="parseNote"></div>
+        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" id="parseBtn">Read it →</button>
+          <button class="btn btn-ghost btn-sm" id="sampleBtn">Try a sample</button>
+        </div>
+        <p class="note">Reading happens in your browser. Nothing you paste is uploaded.</p>
+      </div>
+
+      <div class="panel" data-panel="add" hidden>
+        <form id="form" autocomplete="off">
+          <input type="hidden" id="fId">
+          <div class="form-grid">
+            <div class="full"><label for="fName">Service</label><input id="fName" list="known" required placeholder="e.g. Netflix"><datalist id="known"></datalist></div>
+            <div><label for="fPrice">Price</label><input id="fPrice" type="number" min="0" step="0.01" required placeholder="56"></div>
+            <div><label for="fCur">Currency</label><select id="fCur"></select></div>
+            <div><label for="fCycle">Billing</label>
+              <select id="fCycle"><option value="monthly">Monthly</option><option value="yearly">Yearly</option><option value="weekly">Weekly</option><option value="quarterly">Every 3 months</option></select></div>
+            <div><label for="fNext">Next charge / trial ends</label><input id="fNext" type="date"></div>
+            <div class="full"><label for="fEmail">Email it's registered with</label><input id="fEmail" type="email" placeholder="which inbox did the receipt arrive in?"></div>
+            <div><label for="fCard">Card (last 4)</label><input id="fCard" inputmode="numeric" maxlength="4" pattern="\d{4}" placeholder="4821"></div>
+            <div><label for="fVia">Paid via</label>
+              <select id="fVia"><option value="card">Card directly</option><option value="apple">Apple App Store</option><option value="google">Google Play</option><option value="paypal">PayPal</option><option value="other">Other</option></select></div>
+            <div class="full"><label class="check"><input type="checkbox" id="fTrial"> This is a free trial (it will start charging)</label></div>
+            <div class="full"><label for="fCancel">Cancel page (optional)</label><input id="fCancel" type="url" placeholder="https://…"></div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:14px">
+            <button class="btn btn-primary" type="submit" id="saveBtn">Save subscription</button>
+            <button class="btn btn-ghost" type="button" id="resetBtn">Clear</button>
+          </div>
+          <p class="note">Never enter your full card number. The last 4 digits are enough.</p>
+        </form>
+      </div>
+    </div>
+
+    <!-- RIGHT: list -->
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; flex-wrap:wrap">
+        <div class="toolbar">
+          <label for="groupBy" class="small" style="margin:0">Group by</label>
+          <select id="groupBy"><option value="email">Email</option><option value="card">Card</option><option value="none">Next charge</option></select>
+        </div>
+        <div class="toolbar">
+          <button class="btn btn-ghost btn-sm" id="demoBtn">Load example data</button>
+          <button class="btn btn-danger btn-sm" id="clearBtn">Delete all</button>
+        </div>
+      </div>
+      <div class="card" id="csvBox" hidden style="margin-bottom:12px">
+        <label for="csvText">Your list as CSV. Select all and copy, then paste into Excel or Google Sheets.</label>
+        <textarea id="csvText" readonly></textarea>
+      </div>
+      <div id="list"></div>
+      <p class="note">Currency conversion uses rough fixed rates for totals only (USD and SAR are pegged to AED; EUR, GBP and INR are approximate).</p>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer"><div class="wrap"><span>SubSweep · early preview · your data stays in this browser</span><a href="./">About</a></div></footer>
+<div class="toast" id="toast" role="status"></div>
+<script src="locale.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

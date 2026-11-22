@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SubSweep — Find every forgotten subscription</title>
+<meta name="description" content="SubSweep finds the free trials and subscriptions you forgot, shows which email and card each one is on, and reminds you before you're charged. Free and private: your data stays in your browser.">
+<link rel="canonical" href="https://subsweep.sharpmoneyboard.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SubSweep">
+<meta property="og:title" content="SubSweep — Find every forgotten subscription">
+<meta property="og:description" content="See every subscription, which email and card it's on, and get reminded before the next charge. Free, private, no sign-up.">
+<meta property="og:url" content="https://subsweep.sharpmoneyboard.com/">
+<meta property="og:image" content="https://subsweep.sharpmoneyboard.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0f9d74">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .hero { padding: 72px 0 56px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
+  .hero h1 { font-size: clamp(36px, 5.6vw, 60px); margin: 16px 0 18px; text-wrap: balance; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero .sub { font-size: 19px; color: var(--muted); margin: 0 0 28px; max-width: 32em; }
+  .hero-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+  .trust { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 22px; font-size: 14px; color: var(--muted); }
+
+  .mock { padding: 0; overflow: hidden; }
+  .mock-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .mock-total { white-space: nowrap; font-size: clamp(22px, 5vw, 28px); font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .mock-group { padding: 12px 18px; border-bottom: 1px solid var(--border); }
+  .mock-group:last-child { border-bottom: 0; }
+  .mock-email { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .mock-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 15px; }
+  .mock-row .ico { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; flex: none; }
+  .mock-row .name { flex: 1; font-weight: 600; min-width: 0; }
+  .mock-row .name small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+  .mock-row .amt { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .local { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 18px; }
+  .chip { font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .stat-n { font-size: 40px; font-weight: 800; letter-spacing: -.03em; color: var(--accent); line-height: 1; }
+  .stat p { margin: 8px 0 0; color: var(--muted); font-size: 15px; }
+  .stat cite { display: block; font-style: normal; font-size: 12px; margin-top: 8px; color: var(--muted); }
+
+  .step-n { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 800; display: grid; place-items: center; margin-bottom: 10px; }
+  .card h3 { margin: 0 0 6px; font-size: 18px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .compare { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .compare th, .compare td { padding: 12px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  .compare th { font-size: 13px; color: var(--muted); font-weight: 700; }
+  .compare td:not(:first-child), .compare th:not(:first-child) { text-align: center; }
+  .compare .us { background: var(--accent-soft); font-weight: 700; }
+  .table-scroll { overflow-x: auto; }
+
+  .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+  .price { display: flex; flex-direction: column; }
+  .price .amt { font-size: 36px; font-weight: 800; letter-spacing: -.02em; margin: 6px 0 2px; }
+  .price .approx { font-size: 13px; color: var(--muted); min-height: 1.2em; }
+  .price ul { padding-left: 18px; margin: 14px 0 20px; color: var(--muted); font-size: 15px; flex: 1; }
+  .price.featured { border: 2px solid var(--accent); }
+
+  details { border-bottom: 1px solid var(--border); padding: 16px 0; }
+  summary { cursor: pointer; font-weight: 700; }
+  details p { color: var(--muted); margin: 8px 0 0; }
+
+  .cta-band { text-align: center; padding: 48px 20px; }
+  .waitlist { display: flex; gap: 8px; max-width: 480px; margin: 20px auto 0; flex-wrap: wrap; }
+  .waitlist input { flex: 1 1 220px; width: auto; }
+  .thanks { margin-top: 14px; color: var(--accent); font-weight: 600; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; padding: 0; margin: -1px; }
+
+  .country { display: flex; align-items: center; gap: 6px; }
+  .country select { width: auto; padding: 6px 8px; font-size: 13px; max-width: 170px; }
+
+  @media (max-width: 860px) {
+    .hero, .stats, .price-grid { grid-template-columns: 1fr; }
+    .hero { padding-top: 36px; gap: 32px; }
+  }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="./"><span class="logo-mark">✓</span>SubSweep</a>
+    <nav class="nav">
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <span class="country"><label for="country" class="small" style="margin:0">Country</label><select id="country"></select></span>
+      <a href="app.html" class="btn btn-primary btn-sm">Open the tracker</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <span class="eyebrow">Free · no sign-up · private</span>
+      <h1>Find every subscription you <em>forgot</em> you're paying for.</h1>
+      <p class="sub">Free trials that quietly became paid plans. Apps you signed up for with an email you no longer check. SubSweep shows you <strong>what you're paying, which email and card it's on</strong>, and reminds you before the next charge.</p>
+      <div class="hero-ctas">
+        <a href="app.html" class="btn btn-primary">Start my sweep, free →</a>
+        <a href="#how" class="btn btn-ghost">See how it works</a>
+      </div>
+      <div class="trust"><span>🔒 Data stays in your browser</span><span>🚫 No bank login</span><span>📧 No inbox access needed</span></div>
+      <div class="local" aria-live="polite"><span class="small muted" id="localLabel">Popular where you are:</span><span id="localChips"></span></div>
+    </div>
+
+    <div class="card mock" aria-label="Example SubSweep dashboard">
+      <div class="mock-top">
+        <div><div class="small muted">You're paying</div><div class="mock-total"><span data-money="412" data-cur="AED">AED 412</span> / month</div></div>
+        <span class="pill pill-soon">2 renew this week</span>
+      </div>
+      <div class="mock-group">
+        <div class="mock-email">you.personal@gmail.com</div>
+        <div class="mock-row"><span class="ico" style="background:#e50914">N</span><span class="name">Netflix<small>Card •• 4821 · renews in 2 days</small></span><span class="amt" data-money="56" data-cur="AED">AED 56</span></div>
+        <div class="mock-row"><span class="ico" style="background:#10a37f">AI</span><span class="name">ChatGPT Plus<small>Card •• 4821 · renews in 9 days</small></span><span class="amt" data-money="20" data-cur="USD">$20</span></div>
+      </div>
+      <div class="mock-group">
+        <div class="mock-email">old.hotmail@hotmail.com <span class="pill pill-muted">forgot this one</span></div>
+        <div class="mock-row"><span class="ico" style="background:#7c3aed">D</span><span class="name">Design tool trial<small>Card •• 0193 · <b style="color:var(--warn)">trial ends in 2 days</b></small></span><span class="amt" data-money="15" data-cur="USD">$15</span></div>
+        <div class="mock-row"><span class="ico" style="background:#0ea5e9">☁</span><span class="name">Cloud storage<small>Card •• 0193 · renews yearly</small></span><span class="amt"><span data-money="99" data-cur="USD">$99</span>/yr</span></div>
+      </div>
+    </div>
+  </div>
+
+  <section style="padding-top:24px">
+    <div class="wrap">
+      <div class="stats">
+        <div class="card stat"><div class="stat-n">~$45</div><p>lost every month to forgotten free trials, on average.</p><cite>Dimers survey (US, 2026), via Cord Cutters News</cite></div>
+        <div class="card stat"><div class="stat-n">69%</div><p>of people have been charged after forgetting to cancel a free trial.</p><cite>BestMoney.com survey (US, May 2026)</cite></div>
+        <div class="card stat" id="localStat"><div class="stat-n">~3</div><p>online subscriptions per person in the UAE, at around AED 90 each per month.</p><cite>Adsmehub UAE consumer survey</cite></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>Ten minutes. Every email. Every card.</h2>
+      <p class="lead">Your bank shows the charge. Your inbox shows the account. SubSweep puts them together so you can actually cancel.</p>
+      <div class="grid-4">
+        <div class="card"><div class="step-n">1</div><h3>Search your inboxes</h3><p>One-click Gmail searches for trials, renewals and sign-ups. Run them in <em>each</em> of your accounts.</p></div>
+        <div class="card"><div class="step-n">2</div><h3>Paste a receipt</h3><p>SubSweep reads the price, renewal date, card and which email it's on. You check it and save.</p></div>
+        <div class="card"><div class="step-n">3</div><h3>See it all in one place</h3><p>Grouped by email and card, with your real monthly total in <span data-curname>your currency</span>.</p></div>
+        <div class="card"><div class="step-n">4</div><h3>Cancel in time</h3><p>Add a calendar reminder 3 days before each renewal, with a link to the cancel page.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" style="background:var(--surface-2)">
+    <div class="wrap">
+      <h2>Built to be trusted with your money</h2>
+      <p class="lead">Subscription apps usually ask for your inbox or your bank login. We don't.</p>
+      <div class="grid-3">
+        <div class="card"><h3>🔒 Stays on your device</h3><p>Your list is saved in your own browser. It is never uploaded to our servers.</p></div>
+        <div class="card"><h3>📧 No inbox access</h3><p>You run the searches yourself and paste only what you choose. We never read your email.</p></div>
+        <div class="card"><h3>🏦 No bank login</h3><p>We never ask for card numbers or passwords. The last 4 digits are enough to tell your cards apart.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>What's different</h2>
+      <p class="lead">Other tools see only one bank or one inbox. You have several of each.</p>
+      <div class="card table-scroll" style="padding:8px 16px">
+        <table class="compare">
+          <thead><tr><th></th><th class="us">SubSweep</th><th>Bank app views</th><th>Inbox-scanning apps</th></tr></thead>
+          <tbody>
+            <tr><td>Shows <strong>which email</strong> each subscription is on</td><td class="us">✓</td><td>—</td><td>One inbox</td></tr>
+            <tr><td>Works across all your banks and cards</td><td class="us">✓</td><td>Their cards only</td><td>Partly</td></tr>
+            <tr><td>No inbox or bank access needed</td><td class="us">✓</td><td>✓</td><td>—</td></tr>
+            <tr><td>App Store and Google Play subscriptions</td><td class="us">✓</td><td>Partly</td><td>Partly</td></tr>
+            <tr><td>Free trial countdowns</td><td class="us">✓</td><td>—</td><td>Some</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="wrap">
+      <h2>Simple pricing. Not another subscription.</h2>
+      <p class="lead">A subscription tracker shouldn't trap you in a subscription. The tracker is free today; paid features are coming soon.</p>
+      <div class="price-grid">
+        <div class="card price"><h3>Free</h3><div class="amt">$0</div><div class="approx">forever</div>
+          <ul><li>Unlimited subscriptions</li><li>Group by email and card</li><li>Gmail search shortcuts</li><li>Calendar reminders</li></ul>
+          <a href="app.html" class="btn btn-ghost">Start free</a></div>
+        <div class="card price featured"><h3>Full Sweep <span class="pill pill-muted">Coming soon</span></h3><div class="amt">$9</div><div class="approx" data-approx="9">one-time</div>
+          <ul><li>Everything in Free</li><li>Step-by-step cancel guides</li><li>Price-increase tracking</li><li>Export report</li></ul>
+          <a href="#waitlist" class="btn btn-primary">Get early access</a></div>
+        <div class="card price"><h3>Pro <span class="pill pill-muted">Coming soon</span></h3><div class="amt">$24</div><div class="approx" data-approx="24">per year</div>
+          <ul><li>Everything in Full Sweep</li><li>Forward receipts by email</li><li>Email and WhatsApp reminders</li><li>Sync across devices</li></ul>
+          <a href="#waitlist" class="btn btn-ghost">Get early access</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" style="padding-top:16px">
+    <div class="wrap" style="max-width:780px">
+      <h2>Questions</h2>
+      <details><summary>Do you read my email?</summary><p>No. SubSweep gives you ready-made searches that open in your own Gmail. You decide what to copy into SubSweep.</p></details>
+      <details><summary>Where is my data stored?</summary><p>In your browser's storage on this device. Clearing your browser data removes it, so use "Copy list as CSV" to keep a backup.</p></details>
+      <details><summary>Can SubSweep cancel subscriptions for me?</summary><p>Not automatically. That would need your passwords. Instead, we link you to the right cancel page and remind you before you're charged.</p></details>
+      <details><summary>I was charged after I cancelled. What can I do?</summary><p>Keep your cancellation email, contact the merchant first, then your bank's dispute team. This is general information, not legal advice.</p></details>
+      <details><summary>Does it work in my country?</summary><p>Yes. SubSweep picks your currency and popular local services from your device's time zone. You can change the country at the top of the page.</p></details>
+    </div>
+  </section>
+
+  <section id="waitlist" style="padding-top:16px">
+    <div class="wrap">
+      <div class="card cta-band">
+        <h2>Stop paying for things you forgot.</h2>
+        <p class="lead" style="margin:0 auto">Use the free tracker now, or get early access to cancel guides and reminders.</p>
+        <form class="waitlist" id="wlForm" novalidate>
+          <label for="wlEmail" class="visually-hidden">Email address</label>
+          <input type="email" id="wlEmail" name="email" placeholder="you@email.com" autocomplete="email" required>
+          <input type="text" name="_honey" tabindex="-1" autocomplete="off" class="visually-hidden" aria-hidden="true">
+          <button class="btn btn-primary" type="submit" id="wlBtn">Get early access</button>
+        </form>
+        <p class="small muted" style="margin-top:10px">We'll only email you about SubSweep. Unsubscribe anytime.</p>
+        <div class="thanks" id="wlThanks" role="status" hidden>✓ You're on the list. While you wait, <a href="app.html">start your free sweep</a>.</div>
+        <div class="small" id="wlErr" role="alert" hidden style="color:var(--danger); margin-top:10px"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 SubSweep · Built in Dubai</span>
+    <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></span>
+  </div>
+</footer>
+
+<script src="config.js"></script>
+<script src="locale.js"></script>
+<script>
+(function () {
+  var L = window.SSLocale, CFG = window.SS_CONFIG || {};
+  L.bindSelect(document.getElementById('country'));
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  function apply(loc) {
+    // Amounts in the example dashboard, shown in the visitor's currency
+    document.querySelectorAll('[data-money]').forEach(function (el) {
+      var v = L.convert(+el.dataset.money, el.dataset.cur, loc.cur);
+      el.textContent = L.money(v, loc.cur, { maximumFractionDigits: 0 });
+    });
+    // "≈ local price" hints
+    document.querySelectorAll('[data-approx]').forEach(function (el) {
+      var base = el.dataset.approx === '9' ? 'one-time' : 'per year';
+      el.textContent = loc.cur === 'USD' ? base : base + ' · ≈ ' + L.money(L.convert(+el.dataset.approx, 'USD', loc.cur), loc.cur, { maximumFractionDigits: 0 });
+    });
+    document.querySelectorAll('[data-curname]').forEach(function (el) { el.textContent = loc.cur; });
+    document.getElementById('localLabel').textContent = 'Popular in ' + loc.name.replace(/ \(.*\)$/, '') + ':';
+    document.getElementById('localChips').innerHTML = loc.local.slice(0, 5).map(function (n) { return '<span class="chip">' + esc(n) + '</span>'; }).join(' ');
+    var s = loc.stat, box = document.getElementById('localStat');
+    box.innerHTML = '<div class="stat-n">' + esc(s.n) + '</div><p>' + esc(s.t) + '</p><cite>' + esc(s.src) + '</cite>';
+  }
+
+  // Early access: posts to FormSubmit, which emails each sign-up (with the visitor's country) to the owner.
+  var form = document.getElementById('wlForm');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = document.getElementById('wlEmail'), btn = document.getElementById('wlBtn'), err = document.getElementById('wlErr');
+    if (!email.value || !email.checkValidity()) { email.focus(); email.reportValidity(); return; }
+    if (form.elements._honey.value) return; // bot
+    var loc = L.get() || { code: 'XX', name: 'Unknown' };
+    err.hidden = true; btn.disabled = true; var label = btn.textContent; btn.textContent = 'Joining…';
+    fetch(CFG.formEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        email: email.value, country: loc.code + ' (' + loc.name + ')', source: 'subsweep-landing',
+        _subject: 'New SubSweep early-access sign-up', _template: 'table', _captcha: 'false'
+      })
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || String(res.j.success) === 'false') throw new Error(res.j.message || 'failed');
+        form.hidden = true; document.getElementById('wlThanks').hidden = false;
+      })
+      .catch(function () {
+        err.textContent = "That didn't go through. Check your connection and try again.";
+        err.hidden = false; btn.disabled = false; btn.textContent = label;
+      });
+  });
+
+  L.ready.then(apply);
+  L.onChange(apply);
+})();
+</script>
+</body>
+</html>
