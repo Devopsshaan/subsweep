@@ -6,7 +6,7 @@ window.SS_CONFIG = {
 
   // Google OAuth Web client ID for "Connect Gmail" (beta). Create it in Google Cloud Console
   // (see DEPLOY.md). Leave empty to hide the feature. It's public by design; no secret is needed.
-  googleClientId: '',
+  googleClientId: '743525755690-frrt6kuotiv869agj7trjvujvpvsjiar.apps.googleusercontent.com',
 
   // Public contact address for the privacy and terms pages. Leave empty to hide it.
   contactEmail: '',
