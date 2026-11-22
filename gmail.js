@@ -9,11 +9,16 @@
   if (!S) return;
 
   var SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
-  var QUERY = '(subscription OR "auto-renew" OR "auto-renewing" OR renews OR renewal OR "next billing" OR "next payment" OR ' +
-    '"free trial" OR "trial ends" OR membership OR "your receipt" OR "order receipt" OR "payment receipt") newer_than:1y';
+  // Transactional emails only: subject must look like a receipt/renewal/trial notice; skip Promotions,
+  // Social, Forums and your own sent mail, so newsletters don't crowd out real receipts.
+  var QUERY = 'newer_than:1y -in:sent -from:me -category:promotions -category:social -category:forums ' +
+    'subject:(receipt OR invoice OR subscription OR renew OR renews OR renewal OR renewed OR "free trial" OR "trial ends" OR ' +
+    '"trial ending" OR payment OR membership OR billing OR charged OR "order confirmation")';
+  var TX_SUBJECT = /receipt|invoice|subscri|renew|trial|payment|membership|billing|charged|order confirmation|your order|purchase/i;
   var MAX_MESSAGES = 150;
   var RECURRING = /subscri|renew|per month|\/\s?mo(nth)?\b|monthly|per year|\/\s?yr\b|annual|yearly|membership|free trial|trial (ends|period)|plan\b|premium|per period|billing period/i;
-  var SKIP_SUBJECT = /refund|statement|key fact|itinerary|e-?ticket|boarding|one[- ]time password|\botp\b|password|verify your|loan|webinar|newsletter|black friday|sale\b|% off/i;
+  var SKIP_SUBJECT = /refund|statement|key fact|itinerary|e-?ticket|boarding|one[- ]time password|\botp\b|password|verify your|loan|webinar|newsletter|black friday|sale\b|% off|split in|instal+ment|tax invoice for|credit note|cancel|credit card payment|payment received|payment (was )?success|successful payment|payment due|payment confirmation|upcoming payment|payment coming up|transfer receipt|ticket|visa|emirates id|automatic reply|maintenance|threshold|payment method updated|payment info|tabby|tamara|membership (information|application|assessment|inquiry)|google ads|ads:|thanks for shopping|order invoice/i;
+  var SKIP_SENDER = /news|newsletter|marketing|promo|offers|digest|updates@|community/i;
 
   function $(id) { return document.getElementById(id); }
   S._gmail = { toCandidate: toCandidate, bodyText: bodyText }; // test hook (function declarations are hoisted)
@@ -110,9 +115,11 @@
   // Turn one Gmail message into a subscription candidate (or null).
   function toCandidate(msg, account) {
     var subject = header(msg, 'subject'), from = header(msg, 'from');
-    if (SKIP_SUBJECT.test(subject)) return null;
-    var body = bodyText(msg.payload).slice(0, 20000);
-    if (!RECURRING.test(subject + '\n' + body.slice(0, 4000))) return null;
+    if (SKIP_SUBJECT.test(subject) || !TX_SUBJECT.test(subject) || SKIP_SENDER.test(from)) return null;
+    // Only the top of the email: receipts put the important lines first, and this stops
+    // a service name mentioned deep in an article from being picked up.
+    var body = bodyText(msg.payload).slice(0, 3000);
+    if (!RECURRING.test(subject + '\n' + body)) return null;
     var text = 'From: ' + from + '\nTo: ' + account + '\nSubject: ' + subject + '\n' + body;
     var p = S.parseReceipt(text);
     if (!p.name || !(p.price > 0)) return null;
