@@ -166,11 +166,22 @@
     else if (/paypal/i.test(text)) out.via = 'paypal';
 
     // Dates: collect all, prefer the first future one near a renewal/trial keyword.
-    var dates = findDates(text);
+    var all = findDates(text);
+    var dates = all.filter(function (x) { return !x.change; });
     var keyed = dates.filter(function (x) { return x.keyed && x.d >= today(); })[0];
     var future = dates.filter(function (x) { return x.d >= today(); })[0];
     var pick = keyed || future || dates[0];
     if (pick) { out.next = toISO(pick.d); out.fields.push('date'); }
+
+    // Upcoming price change, e.g. "₹501/month for 3 months, then ₹1,950/month starting Feb 7, 2027".
+    var changeDate = all.filter(function (x) { return x.change && x.d >= today(); })[0];
+    var then = text.match(/\bthen\s+(AED|USD|EUR|GBP|SAR|INR|US\$|\$|€|£|₹)\s?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/i);
+    if (changeDate && then) {
+      var lsym = then[1].toUpperCase();
+      var lmap = { '$': 'USD', 'US$': 'USD', '€': 'EUR', '£': 'GBP', '₹': 'INR' };
+      out.later = { price: parseFloat(then[2].replace(/,/g, '')), cur: lmap[lsym] || lsym, from: toISO(changeDate.d) };
+      out.fields.push('price change');
+    }
 
     return out;
   }
@@ -224,10 +235,13 @@
   function findDates(text) {
     var res = [];
     var KEY = /(renew|next (billing|payment|charge)|trial (ends|will end)|ends on|will be charged|billed on|due)/i;
+    var CHANGE = /(starting|beginning|from|effective|as of)\s*(on\s*)?$/i;
     function push(d, idx) {
       if (!d || isNaN(d)) return;
       var ctx = text.slice(Math.max(0, idx - 80), idx);
-      res.push({ d: d, idx: idx, keyed: KEY.test(ctx) });
+      // "then ₹1,950/month starting Feb 7" is a price change, not the next charge.
+      var change = CHANGE.test(text.slice(Math.max(0, idx - 30), idx));
+      res.push({ d: d, idx: idx, keyed: KEY.test(ctx) && !change, change: change });
     }
     var m, re;
     re = /\b(\d{4})-(\d{2})-(\d{2})\b/g;                                   // 2026-12-05
@@ -295,7 +309,9 @@
   }
 
   // ---------- form ----------
+  var formLater = null; // upcoming price change carried through the form (not editable yet)
   function fillForm(d) {
+    formLater = d.later || null;
     els.fId.value = d.id || '';
     els.fName.value = d.name || '';
     els.fPrice.value = d.price != null && !isNaN(d.price) ? d.price : '';
@@ -318,7 +334,7 @@
       id: els.fId.value || ('s' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
       name: els.fName.value.trim(), price: parseFloat(els.fPrice.value), cur: els.fCur.value, cycle: els.fCycle.value,
       next: els.fNext.value, email: els.fEmail.value.trim().toLowerCase(), card: els.fCard.value.trim(),
-      via: els.fVia.value, trial: els.fTrial.checked, cancel: els.fCancel.value.trim()
+      via: els.fVia.value, trial: els.fTrial.checked, cancel: els.fCancel.value.trim(), later: formLater
     };
     var idx = state.items.findIndex(function (x) { return x.id === item.id; });
     if (idx >= 0) state.items[idx] = item; else state.items.push(item);
@@ -398,6 +414,12 @@
     if (dd != null && dd < 0 && it.trial) pills += '<span class="pill pill-muted">Trial ended. Check if charged</span>';
     else if (due) pills += '<span class="pill pill-soon">' + (dd === 0 ? 'Today' : 'In ' + dd + ' day' + (dd === 1 ? '' : 's')) + '</span>';
     var via = it.via === 'apple' ? 'App Store' : it.via === 'google' ? 'Google Play' : it.via === 'paypal' ? 'PayPal' : '';
+    var later = it.later && parseISO(it.later.from);
+    if (later && later >= today()) {
+      var up = it.later.price > (+it.price || 0);
+      pills += '<span class="pill ' + (up ? 'pill-soon' : 'pill-ok') + '">' + (up ? 'Price rises' : 'Price drops') + ' to ' +
+        esc(money(it.later.price, it.later.cur)) + ' on ' + esc(fmtShort(later)) + '</span>';
+    }
     var meta = [
       d ? (it.trial ? 'Trial ends ' : 'Next charge ') + fmtShort(d) : 'No date set',
       it.card ? 'Card •• ' + esc(it.card) : '',
@@ -501,7 +523,7 @@
         state.items.push({
           id: 'g' + Date.now().toString(36) + i, name: d.name, price: +d.price || 0, cur: d.cur || state.base,
           cycle: d.cycle || 'monthly', next: d.next || '', email: (d.email || '').toLowerCase(), card: d.card || '',
-          via: d.via || 'card', trial: !!d.trial, cancel: ''
+          via: d.via || 'card', trial: !!d.trial, cancel: '', later: d.later || null
         });
       });
       save(); render();

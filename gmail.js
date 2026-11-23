@@ -132,7 +132,7 @@
     var next = p.next && p.next >= iso ? p.next : iso;
     return {
       name: p.name, price: p.price, cur: p.cur, cycle: p.cycle || 'monthly', next: next, trial: !!p.trial,
-      card: p.card || '', via: p.via || 'card', email: account, subject: subject, sent: iso
+      card: p.card || '', via: p.via || 'card', email: account, subject: subject, sent: iso, later: p.later || null
     };
   }
 
